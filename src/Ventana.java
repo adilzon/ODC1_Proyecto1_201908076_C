@@ -3,6 +3,9 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.io.*;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class Ventana extends JFrame {
 
@@ -11,6 +14,8 @@ public class Ventana extends JFrame {
     private JTextArea outputArea;
 
     private File archivoActual = null;
+
+    private DatabaseManager dbManager = new DatabaseManager();
 
     public Ventana() {
 
@@ -158,42 +163,91 @@ public class Ventana extends JFrame {
     // ---------------- EJECUCIÓN ----------------
 
     private void ejecutarCodigo() {
+
         String codigo = editorArea.getText().trim();
+        if (codigo.isEmpty()) return;
 
-        if (codigo.isEmpty()) {
-            consolaArea.append(">> No hay código para ejecutar.\n");
-            return;
-        }
-
-        consolaArea.append("\n>> Iniciando análisis léxico con JFlex...\n");
+        consolaArea.append("\n>> Iniciando análisis léxico + ejecución...\n");
 
         try {
+
             Lexer lexer = new Lexer(new java.io.StringReader(codigo));
             lexer.yylex();
+
+            // EJECUCIÓN SIMPLE (por ahora)
+
+            if (codigo.contains("database universidad")) {
+                dbManager.createDatabase("universidad");
+                consolaArea.append(">> Base de datos 'universidad' creada\n");
+            }
+
+            if (codigo.contains("table estudiantes")) {
+
+                Map<String, String> schema = new HashMap<>();
+                schema.put("id", "int");
+                schema.put("nombre", "string");
+                schema.put("edad", "int");
+
+                dbManager.createTable("estudiantes", schema);
+
+                consolaArea.append(">> Tabla 'estudiantes' creada\n");
+            }
+
+            if (codigo.contains("add estudiantes")) {
+
+                Map<String, Object> record = new HashMap<>();
+                record.put("id", 1);
+                record.put("nombre", "Luis");
+                record.put("edad", 22);
+
+                dbManager.addRecord("estudiantes", record);
+
+                consolaArea.append(">> Registro agregado correctamente\n");
+            }
+
+            if (codigo.contains("read estudiantes")) {
+
+                List<Map<String, Object>> resultados =
+                        dbManager.read("estudiantes", "edad", 22);
+
+                outputArea.setText("Resultados de la consulta:\n" + resultados);
+
+                consolaArea.append(">> Consulta READ ejecutada (" +
+                        resultados.size() + " registros)\n");
+            }
 
             mostrarReporteTokens(lexer.tokens);
             mostrarReporteErrores(lexer.errores);
 
-            consolaArea.append(">> Análisis léxico COMPLETO → Tokens: "
-                    + lexer.tokens.size()
-                    + " | Errores: " + lexer.errores.size() + "\n");
-
         } catch (Exception e) {
-            consolaArea.append(">> Error en lexer: " + e.getMessage() + "\n");
+
+            consolaArea.append(">> Error: " + e.getMessage() + "\n");
+
         }
     }
 
     // ---------------- REPORTES ----------------
 
     private void mostrarReporteTokens(ArrayList<Token> tokens) {
+
         String[] columnas = {"Lexema", "Tipo", "Línea", "Columna"};
         Object[][] data = new Object[tokens.size()][4];
+
         for (int i = 0; i < tokens.size(); i++) {
+
             Token t = tokens.get(i);
-            data[i] = new Object[]{t.getLexema(), t.getTipo(), t.getLinea(), t.getColumna()};
+
+            data[i] = new Object[]{
+                    t.getLexema(),
+                    t.getTipo(),
+                    t.getLinea(),
+                    t.getColumna()
+            };
         }
+
         JTable tabla = new JTable(data, columnas);
         JScrollPane scroll = new JScrollPane(tabla);
+
         JFrame frame = new JFrame("Reporte de Tokens");
         frame.setSize(700, 500);
         frame.add(scroll);
@@ -201,18 +255,29 @@ public class Ventana extends JFrame {
     }
 
     private void mostrarReporteErrores(ArrayList<ErrorLexico> errores) {
+
         if (errores.isEmpty()) {
             consolaArea.append(">> No se encontraron errores léxicos 🎉\n");
             return;
         }
+
         String[] columnas = {"Descripción", "Línea", "Columna"};
         Object[][] data = new Object[errores.size()][3];
+
         for (int i = 0; i < errores.size(); i++) {
+
             ErrorLexico e = errores.get(i);
-            data[i] = new Object[]{e.getDescripcion(), e.getLinea(), e.getColumna()};
+
+            data[i] = new Object[]{
+                    e.getDescripcion(),
+                    e.getLinea(),
+                    e.getColumna()
+            };
         }
+
         JTable tabla = new JTable(data, columnas);
         JScrollPane scroll = new JScrollPane(tabla);
+
         JFrame frame = new JFrame("Reporte de Errores Léxicos");
         frame.setSize(700, 400);
         frame.add(scroll);
